@@ -1,0 +1,15 @@
+server:
+  port: 8081
+
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: https://dev-edubridge.us.auth0.com/
+          audiences: dev-edubridge
+
+aws:
+  s3:
+    bucket-name: edubridge-vault
+    region: ap-south-1

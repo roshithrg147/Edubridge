@@ -1,0 +1,15 @@
+package com.edubridge.vaultservice.controller;
+
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/api/health")
+
+public class HealthController {
+    @GetMapping
+    public String Check() {
+        return "Vault Service is Online";
+    }
+}
