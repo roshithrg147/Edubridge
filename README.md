@@ -1,6 +1,6 @@
 # EduBridge Secure Document Vault
 
-A high-performance, secure document storage solution built with **Spring Boot 4**, **Spring Security (OAuth2 / JWT)**, **AWS S3**, and **React (Vite)**.
+A high-performance, secure document storage solution built with **Spring Boot 3**, **Spring Security (OAuth2 / JWT)**, **AWS S3**, and **React (Vite)**.
 
 ## 🚀 Key Features
 
@@ -11,7 +11,7 @@ A high-performance, secure document storage solution built with **Spring Boot 4*
 
 ## 🛠️ Tech Stack
 
-*   **Backend**: Java 17+, Spring Boot 4, Spring Security 6
+*   **Backend**: Java 17+, Spring Boot 3, Spring Security 6
 *   **Cloud Storage**: AWS S3 (via AWS SDK v2)
 *   **Frontend**: React 18, TypeScript, Vite, Axios
 *   **Identity Provider**: Auth0 (OpenID Connect)
@@ -35,13 +35,13 @@ aws:
     bucket-name: your-s3-bucket-name
     region: your-region
 ```
-Ensure you have AWS credentials set up in `~/.aws/credentials` or environment variables.
+ensure you have AWS credentials set up in `~/.aws/credentials` or environment variables.
 
 ### 2. Frontend Configuration
 The frontend requires an Auth0 Client ID to authenticate users.
 Open `frontend/src/App.tsx` and update:
 ```typescript
-const clientId = import.meta.env.VITE_AUTH0_CLIENT_ID || 'YOUR_AUTH0_CLIENT_ID';
+const clientId = import.meta.env.VITE_AUTH0_CLIENT_ID || 'YOUR_AUTO_CLIENT_ID';
 ```
 
 ## ▶️ Running the Application
@@ -70,3 +70,6 @@ This ensures users can only access their own isolated storage space (logic can b
 
 ---
 **EduBridge** - *Bridge the gap to secure learning.*
+
+# Edubridge
+🎓 EduBridge Secure Document Vault  A secure, multi-tenant document management system for educational institutions. Stack: Spring Boot 3 · Spring Security (JWT/OAuth2) · AWS S3 SDK v2 · PostgreSQL · Redis · RabbitMQ · React + TypeScript · Docker
