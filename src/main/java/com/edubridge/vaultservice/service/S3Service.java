@@ -6,6 +6,7 @@ import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -20,8 +21,11 @@ public class S3Service {
     @Value("${aws.s3.bucket-name}")
     private String bucketName;
 
-    public S3Service(S3Client s3Client) {
+    private final S3Presigner s3Presigner;
+
+    public S3Service(S3Client s3Client, S3Presigner s3Presigner) {
         this.s3Client = s3Client;
+        this.s3Presigner = s3Presigner;
     }
 
     public String uploadFile(String userId, MultipartFile file) throws IOException {
@@ -57,6 +61,30 @@ public class S3Service {
         } catch (Exception e) {
             log.error("Unexpected error during file upload", e);
             throw e;
+        }
+    }
+
+    public String generatePresignedUrl(String key) {
+        if (key == null || key.isEmpty()) {
+            return null;
+        }
+
+        try {
+            var presignRequest = software.amazon.awssdk.services.s3.model.GetObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(key)
+                    .build();
+
+            var presignOptions = software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest.builder()
+                    .signatureDuration(java.time.Duration.ofMinutes(15))
+                    .getObjectRequest(presignRequest)
+                    .build();
+
+            var presignedUrl = s3Presigner.presignGetObject(presignOptions).url();
+            return presignedUrl.toString();
+        } catch (Exception e) {
+            log.error("Error generating pre-signed URL for key: {}", key, e);
+            return null;
         }
     }
 }
