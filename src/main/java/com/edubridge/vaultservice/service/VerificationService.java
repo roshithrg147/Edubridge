@@ -1,14 +1,20 @@
 package com.edubridge.vaultservice.service;
 
 import com.edubridge.vaultservice.exception.UserNotFoundException;
+import com.edubridge.vaultservice.model.OutboxEvent;
 import com.edubridge.vaultservice.model.UserRegistration;
 import com.edubridge.vaultservice.model.VerificationStatus;
+import com.edubridge.vaultservice.repository.OutboxEventRepository;
 import com.edubridge.vaultservice.repository.UserRegistrationRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -16,7 +22,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class VerificationService {
 
     private final UserRegistrationRepository repository;
-    private final KafkaTemplate<String, String> kafkaTemplate;
+    private final OutboxEventRepository outboxEventRepository;
+    private final ObjectMapper objectMapper;
 
     @Transactional
     public void handleVerification(String userId, VerificationStatus status, String reason) {
@@ -32,24 +39,33 @@ public class VerificationService {
         }
         repository.save(user);
 
-        // 🚀 Kafka: Broadcast the result
-        String payload = String.format("{\"userId\":\"%s\", \"status\":\"%s\", \"reason\":\"%s\"}",
-                userId, status, (reason != null ? reason : ""));
-
+        // Save to Outbox using JSON serialization
         try {
-            kafkaTemplate.send("verification-events", userId, payload);
-            log.info("Sent verification event for user: {}", userId);
+            Map<String, Object> payloadMap = new HashMap<>();
+            payloadMap.put("userId", userId);
+            payloadMap.put("status", status.name());
+            if (reason != null && !reason.trim().isEmpty()) {
+                payloadMap.put("reason", reason);
+            }
+            String payloadJson = objectMapper.writeValueAsString(payloadMap);
+
+            OutboxEvent event = OutboxEvent.builder()
+                    .aggregateId(userId)
+                    .eventType("verification-events")
+                    .payload(payloadJson)
+                    .status("PENDING")
+                    .build();
+
+            outboxEventRepository.save(event);
+            log.info("Saved verification OutboxEvent for user: {}", userId);
         } catch (Exception e) {
-            log.error("Failed to send Kafka event for user: {}", userId, e);
-            // Non-blocking failure for Kafka? Or rethrow?
-            // For now, logging error but keeping transaction committed as DB update is more
-            // critical
-            // In a real system, we might want outbox pattern or retry
+            log.error("Failed to serialize Outbox payload", e);
+            throw new RuntimeException("Failed to serialize Outbox payload", e);
         }
     }
 
     @Transactional(readOnly = true)
-    public java.util.List<UserRegistration> getPendingRegistrations() {
+    public List<UserRegistration> getPendingRegistrations() {
         return repository.findByVerificationStatus(VerificationStatus.PENDING);
     }
 }

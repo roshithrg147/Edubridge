@@ -1,5 +1,5 @@
 server:
-  port: 8081
+  port: ${PORT:8081}
 
 spring:
   datasource:
@@ -10,13 +10,18 @@ spring:
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
-      ddl-auto: update
-    show-sql: true
+      ddl-auto: validate
+    show-sql: false
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         temp:
           use_jdbc_metadata_defaults: false # Prevents crashing if metadata check fails
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+
   security:
     oauth2:
       resourceserver:
@@ -38,6 +43,13 @@ spring:
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+edubridge:
+  vault:
+    security:
+      jwks-connect-timeout-ms: 10000
+      jwks-read-timeout-ms: 10000
+      issuer-uri: https://dev-edubridge.us.auth0.com/
 
 aws:
   # Use environment variables

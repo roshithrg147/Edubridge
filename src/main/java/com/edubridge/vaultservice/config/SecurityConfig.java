@@ -17,12 +17,16 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import lombok.RequiredArgsConstructor;
 
 import java.util.Arrays;
 
 @Configuration
 @EnableMethodSecurity
+@RequiredArgsConstructor
 public class SecurityConfig {
+
+    private final VaultProperties vaultProperties;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -62,15 +66,18 @@ public class SecurityConfig {
 
     @Bean
     public JwtDecoder jwtDecoder() {
-        // Configure a RestTemplate with much longer timeouts for WSL/JVM stability
+        // Configure a RestTemplate with timeouts configured from properties
         RestTemplate restTemplate = new RestTemplate();
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
-        requestFactory.setConnectTimeout(30000); // 30 seconds
-        requestFactory.setReadTimeout(30000); // 30 seconds
+        requestFactory.setConnectTimeout(vaultProperties.getSecurity().getJwksConnectTimeoutMs());
+        requestFactory.setReadTimeout(vaultProperties.getSecurity().getJwksReadTimeoutMs());
         restTemplate.setRequestFactory(requestFactory);
 
         // Force the issuer location and use custom restTemplate
-        return NimbusJwtDecoder.withIssuerLocation("https://dev-edubridge.us.auth0.com/")
+        // Note: NimbusJwtDecoder with withIssuerLocation uses a DefaultJWTProcessor
+        // which caches the JWK set
+        // internally for 15 minutes by default.
+        return NimbusJwtDecoder.withIssuerLocation(vaultProperties.getSecurity().getIssuerUri())
                 .restOperations(restTemplate)
                 .build();
     }
