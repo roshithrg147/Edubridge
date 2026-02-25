@@ -13,5 +13,10 @@ public interface UserRegistrationRepository extends JpaRepository<UserRegistrati
 
     boolean existsByEmail(String email);
 
+    boolean existsByUsername(String username);
+
+    boolean existsByProvisionedEmail(String provisionedEmail);
+
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = { "verificationStatus" })
     java.util.List<UserRegistration> findByVerificationStatus(VerificationStatus status);
 }

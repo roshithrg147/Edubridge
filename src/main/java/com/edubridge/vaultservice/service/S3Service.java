@@ -43,24 +43,74 @@ public class S3Service {
         log.debug("Uploading file to bucket: {} with key: {}", bucketName, key);
 
         try {
-            PutObjectRequest putObjectRequest = PutObjectRequest.builder()
-                    .bucket(bucketName)
-                    .key(key)
-                    .metadata(metadata)
-                    .contentType(file.getContentType())
-                    .build();
+            if (file.getSize() > 5 * 1024 * 1024) {
+                log.info("File exceeds 5MB, initiating multipart upload for key: {}", key);
+                software.amazon.awssdk.services.s3.model.CreateMultipartUploadResponse createResponse = s3Client
+                        .createMultipartUpload(r -> r.bucket(bucketName).key(key).metadata(metadata)
+                                .contentType(file.getContentType()));
+                String uploadId = createResponse.uploadId();
 
-            s3Client.putObject(putObjectRequest,
-                    RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
+                java.util.List<software.amazon.awssdk.services.s3.model.CompletedPart> completedParts = new java.util.ArrayList<>();
+                long partSize = 5 * 1024 * 1024; // 5 MB
+                int partNumber = 1;
+                byte[] buffer = new byte[(int) partSize];
+
+                try (java.io.InputStream is = file.getInputStream()) {
+                    int bytesRead;
+                    while ((bytesRead = is.read(buffer)) > 0) {
+                        software.amazon.awssdk.services.s3.model.UploadPartRequest uploadPartRequest = software.amazon.awssdk.services.s3.model.UploadPartRequest
+                                .builder()
+                                .bucket(bucketName)
+                                .key(key)
+                                .uploadId(uploadId)
+                                .partNumber(partNumber)
+                                .build();
+
+                        software.amazon.awssdk.services.s3.model.UploadPartResponse uploadPartResponse = s3Client
+                                .uploadPart(uploadPartRequest,
+                                        RequestBody.fromBytes(java.util.Arrays.copyOf(buffer, bytesRead)));
+
+                        completedParts.add(software.amazon.awssdk.services.s3.model.CompletedPart.builder()
+                                .partNumber(partNumber)
+                                .eTag(uploadPartResponse.eTag())
+                                .build());
+                        partNumber++;
+                    }
+                } catch (Exception e) {
+                    log.error("Multipart upload failed. Aborting...", e);
+                    s3Client.abortMultipartUpload(a -> a.bucket(bucketName).key(key).uploadId(uploadId));
+                    throw e;
+                }
+
+                s3Client.completeMultipartUpload(c -> c.bucket(bucketName).key(key).uploadId(uploadId)
+                        .multipartUpload(m -> m.parts(completedParts)));
+            } else {
+                PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                        .bucket(bucketName)
+                        .key(key)
+                        .metadata(metadata)
+                        .contentType(file.getContentType())
+                        .build();
+
+                s3Client.putObject(putObjectRequest,
+                        RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
+            }
 
             log.info("File upload successful. Key: {}", key);
             return key;
         } catch (software.amazon.awssdk.services.s3.model.S3Exception e) {
-            log.error("S3 Upload failed: {}", e.awsErrorDetails().errorMessage(), e);
-            throw new IOException("Failed to upload file to S3", e);
+            log.error("S3 Upload failed. Status: {}, Code: {}, Message: {}",
+                    e.statusCode(), e.awsErrorDetails().errorCode(), e.awsErrorDetails().errorMessage());
+            throw new IOException("S3 service rejected upload", e);
+        } catch (software.amazon.awssdk.awscore.exception.AwsServiceException e) {
+            log.error("AWS Service Error during upload: {}", e.getMessage(), e);
+            throw new IOException("AWS service error", e);
+        } catch (software.amazon.awssdk.core.exception.SdkClientException e) {
+            log.error("AWS Client Error (Network/Timeout) during upload: {}", e.getMessage(), e);
+            throw new IOException("AWS client connection error", e);
         } catch (Exception e) {
             log.error("Unexpected error during file upload", e);
-            throw e;
+            throw new IOException("Unexpected file upload error", e);
         }
     }
 

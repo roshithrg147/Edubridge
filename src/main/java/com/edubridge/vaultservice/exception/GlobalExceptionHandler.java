@@ -10,42 +10,59 @@ import org.springframework.web.context.request.WebRequest;
 import java.time.LocalDateTime;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 
 @RestControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(UserNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleUserNotFoundException(UserNotFoundException ex, WebRequest request) {
-        ErrorResponse errorResponse = new ErrorResponse(
-                LocalDateTime.now(),
-                HttpStatus.NOT_FOUND.value(),
-                HttpStatus.NOT_FOUND.getReasonPhrase(),
-                ex.getMessage(),
-                request.getDescription(false).replace("uri=", ""));
-        return new ResponseEntity<>(errorResponse, HttpStatus.NOT_FOUND);
-    }
+        @ExceptionHandler(UserNotFoundException.class)
+        public ResponseEntity<ErrorResponse> handleUserNotFoundException(UserNotFoundException ex, WebRequest request) {
+                ErrorResponse errorResponse = new ErrorResponse(
+                                LocalDateTime.now(),
+                                HttpStatus.NOT_FOUND.value(),
+                                HttpStatus.NOT_FOUND.getReasonPhrase(),
+                                ex.getMessage(),
+                                request.getDescription(false).replace("uri=", ""));
+                return new ResponseEntity<>(errorResponse, HttpStatus.NOT_FOUND);
+        }
 
-    @ExceptionHandler(InvalidFileException.class)
-    public ResponseEntity<ErrorResponse> handleInvalidFileException(InvalidFileException ex, WebRequest request) {
-        ErrorResponse errorResponse = new ErrorResponse(
-                LocalDateTime.now(),
-                HttpStatus.BAD_REQUEST.value(),
-                HttpStatus.BAD_REQUEST.getReasonPhrase(),
-                ex.getMessage(),
-                request.getDescription(false).replace("uri=", ""));
-        return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
-    }
+        @ExceptionHandler(InvalidFileException.class)
+        public ResponseEntity<ErrorResponse> handleInvalidFileException(InvalidFileException ex, WebRequest request) {
+                ErrorResponse errorResponse = new ErrorResponse(
+                                LocalDateTime.now(),
+                                HttpStatus.BAD_REQUEST.value(),
+                                HttpStatus.BAD_REQUEST.getReasonPhrase(),
+                                ex.getMessage(),
+                                request.getDescription(false).replace("uri=", ""));
+                return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
+        }
 
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> handleGlobalException(Exception ex, WebRequest request) {
-        log.error("Handling global exception", ex);
-        ErrorResponse errorResponse = new ErrorResponse(
-                LocalDateTime.now(),
-                HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase(),
-                "An unexpected error occurred", // Generic message to avoid leaking stack trace
-                request.getDescription(false).replace("uri=", ""));
-        return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+        @ExceptionHandler(MethodArgumentNotValidException.class)
+        public ResponseEntity<ErrorResponse> handleValidationExceptions(MethodArgumentNotValidException ex,
+                        WebRequest request) {
+                String errorMessage = ex.getBindingResult().getFieldErrors().stream()
+                                .map(error -> error.getField() + ": " + error.getDefaultMessage())
+                                .reduce((a, b) -> a + ", " + b).orElse("Validation failed");
+                ErrorResponse errorResponse = new ErrorResponse(
+                                LocalDateTime.now(),
+                                HttpStatus.BAD_REQUEST.value(),
+                                HttpStatus.BAD_REQUEST.getReasonPhrase(),
+                                errorMessage,
+                                request.getDescription(false).replace("uri=", ""));
+                return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
+        }
+
+        @ExceptionHandler(Exception.class)
+        public ResponseEntity<ErrorResponse> handleGlobalException(Exception ex, WebRequest request) {
+                log.error("Handling global exception", ex);
+                ErrorResponse errorResponse = new ErrorResponse(
+                                LocalDateTime.now(),
+                                HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                                HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase(),
+                                "An unexpected error occurred: " + ex.getMessage(), // Generic message augmented with
+                                                                                    // specific error
+                                request.getDescription(false).replace("uri=", ""));
+                return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
 }

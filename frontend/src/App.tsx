@@ -27,10 +27,16 @@ function App() {
             },
           });
           if (response.ok) {
-            const data = await response.json();
-            if (data) {
-              setRegistration(data);
-              setHasIdentity(true);
+            const text = await response.text();
+            if (text) {
+              try {
+                const data = JSON.parse(text);
+                setRegistration(data);
+                setHasIdentity(true);
+              } catch (e) {
+                console.error("Failed to parse identity JSON", e);
+                setHasIdentity(false);
+              }
             } else {
               setHasIdentity(false);
             }

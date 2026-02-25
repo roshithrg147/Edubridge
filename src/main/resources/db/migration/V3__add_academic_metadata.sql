@@ -1,0 +1,2 @@
+ALTER TABLE registrations ADD COLUMN IF NOT EXISTS academic_level VARCHAR(255);
+ALTER TABLE registrations ADD COLUMN IF NOT EXISTS custom_alias VARCHAR(255);

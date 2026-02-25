@@ -31,6 +31,9 @@ public class UserRegistration {
     private String phoneNumber;
     private Integer admissionYear;
 
+    private String academicLevel;
+    private String customAlias;
+
     // Status & Provisioning
     @Enumerated(EnumType.STRING)
     @Builder.Default

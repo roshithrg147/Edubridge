@@ -44,6 +44,16 @@ public class VerificationService {
             Map<String, Object> payloadMap = new HashMap<>();
             payloadMap.put("userId", userId);
             payloadMap.put("status", status.name());
+            if (user.getAcademicLevel() != null) {
+                payloadMap.put("academicLevel", user.getAcademicLevel());
+            }
+            if (user.getCustomAlias() != null) {
+                payloadMap.put("customAlias", user.getCustomAlias());
+            }
+            if (user.getFullName() != null) {
+                payloadMap.put("fullName", user.getFullName());
+            }
+
             if (reason != null && !reason.trim().isEmpty()) {
                 payloadMap.put("reason", reason);
             }

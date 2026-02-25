@@ -18,6 +18,7 @@ public class RegistrationService {
 
     private final UserRegistrationRepository repository;
     private final S3Service s3Service;
+    private final CacheService cacheService;
 
     @Transactional
     public UserRegistration processSignup(UserRegistration reg,
@@ -42,22 +43,19 @@ public class RegistrationService {
             reg.setKycKey(s3Service.uploadFile(reg.getUserId() + "/kyc", kyc));
         }
 
-        // 2. Generate Provisioned Email Alias
-        // Format: <fname>-<dob>-<collegeSlug>@edubridge.edu
-        String safeName = reg.getFullName().toLowerCase().replaceAll("\\s+", "");
-        String safeDob = reg.getDob().toString().replaceAll("-", "");
-        String safeCollege = reg.getCollegeName().toLowerCase().replaceAll("\\s+", "").replaceAll("[^a-z0-9]", "");
+        // 2. Generate Provisioned Email Alias & Save inside a distributed lock
+        return cacheService.executeWithLock("alias_lock_" + reg.getUserId(), () -> {
+            String safeName = reg.getFullName().toLowerCase().replaceAll("\\s+", "");
+            String safeDob = reg.getDob().toString().replaceAll("-", "");
+            String safeCollege = reg.getCollegeName().toLowerCase().replaceAll("\\s+", "").replaceAll("[^a-z0-9]", "");
 
-        // Add a short uuid segment to ensure uniqueness if needed, or keeping it strict
-        // as per request
-        // "<fname><-dob>-<uuid{university}>@edubridge.edu"
-        // Let's use a simple slug for the university/institution for now.
-        String alias = String.format("%s-%s-%s@edubridge.edu", safeName, safeDob, safeCollege);
+            String alias = String.format("%s-%s-%s@edubridge.edu", safeName, safeDob, safeCollege);
 
-        reg.setProvisionedEmail(alias);
-        reg.setVerificationStatus(VerificationStatus.PENDING);
+            reg.setProvisionedEmail(alias);
+            reg.setVerificationStatus(VerificationStatus.PENDING);
 
-        // 3. Final save to Supabase
-        return repository.save(reg);
+            // 3. Final save to Supabase
+            return repository.save(reg);
+        });
     }
 }

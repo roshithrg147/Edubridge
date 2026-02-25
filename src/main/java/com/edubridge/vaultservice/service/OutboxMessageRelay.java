@@ -4,7 +4,7 @@ import com.edubridge.vaultservice.model.OutboxEvent;
 import com.edubridge.vaultservice.repository.OutboxEventRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -17,7 +17,7 @@ import java.util.List;
 public class OutboxMessageRelay {
 
     private final OutboxEventRepository outboxEventRepository;
-    private final KafkaTemplate<String, String> kafkaTemplate;
+    private final RabbitTemplate rabbitTemplate;
 
     @Scheduled(fixedDelay = 5000)
     public void relayOutboxMessages() {
@@ -29,8 +29,11 @@ public class OutboxMessageRelay {
 
         for (OutboxEvent event : pendingEvents) {
             try {
-                // Send payload to Kafka securely and wait for acknowledgement
-                kafkaTemplate.send(event.getEventType(), event.getAggregateId(), event.getPayload()).get();
+                // Send to RabbitMQ Exchange
+                String routingKey = event.getEventType().equals("verification-events") ? "verification.events"
+                        : event.getEventType();
+                rabbitTemplate.convertAndSend(com.edubridge.vaultservice.config.RabbitMQConfig.EXCHANGE, routingKey,
+                        event.getPayload());
 
                 // Mark as processed
                 event.setStatus("PROCESSED");
